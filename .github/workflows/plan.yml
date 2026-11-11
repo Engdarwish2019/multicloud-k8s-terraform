@@ -28,7 +28,7 @@ jobs:
     env:
       TF_VAR_api_allowed_cidrs: ${{ vars.API_ALLOWED_CIDRS }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: AWS credentials (OIDC)
         if: inputs.cloud == 'aws'
