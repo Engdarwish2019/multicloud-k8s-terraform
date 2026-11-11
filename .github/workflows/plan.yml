@@ -28,18 +28,18 @@ jobs:
     env:
       TF_VAR_api_allowed_cidrs: ${{ vars.API_ALLOWED_CIDRS }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
       - name: AWS credentials (OIDC)
         if: inputs.cloud == 'aws'
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a  # v4.3.1
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: eu-central-1
 
       - name: Azure login (OIDC)
         if: inputs.cloud == 'azure'
-        uses: azure/login@v2
+        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6  # v2.3.1
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -57,7 +57,7 @@ jobs:
 
       - name: Google credentials (Workload Identity Federation)
         if: inputs.cloud == 'gcp'
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed  # v2.1.13
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
@@ -66,7 +66,7 @@ jobs:
         if: inputs.cloud == 'gcp'
         run: echo "TF_VAR_project_id=${{ vars.GCP_PROJECT_ID }}" >> "$GITHUB_ENV"
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd  # v3.1.2
         with:
           terraform_version: 1.9.8
 

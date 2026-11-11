@@ -4,6 +4,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
   - package-ecosystem: terraform
     directories:
       - /envs/aws
@@ -12,3 +14,5 @@ updates:
       - /modules/aws-eks
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
