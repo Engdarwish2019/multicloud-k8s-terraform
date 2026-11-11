@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: terraform
+    directories:
+      - /envs/aws
+      - /envs/azure
+      - /envs/gcp
+      - /modules/aws-eks
+    schedule:
+      interval: weekly

@@ -1,0 +1,9 @@
+framework:
+  - terraform
+compact: true
+quiet: true
+download-external-modules: false
+skip-check:
+  # Registry modules are pinned with version constraints and the dependency lock file,
+  # which is the documented Terraform practice for registry sources.
+  - CKV_TF_1
