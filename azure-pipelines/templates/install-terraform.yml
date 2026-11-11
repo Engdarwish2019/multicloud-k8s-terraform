@@ -1,0 +1,16 @@
+# Step template: install a pinned Terraform release, verified against HashiCorp's checksums.
+parameters:
+  - name: version
+    type: string
+
+steps:
+  - bash: |
+      set -euo pipefail
+      v="${{ parameters.version }}"
+      cd "$(Agent.TempDirectory)"
+      curl -fsSLO "https://releases.hashicorp.com/terraform/${v}/terraform_${v}_linux_amd64.zip"
+      curl -fsSLO "https://releases.hashicorp.com/terraform/${v}/terraform_${v}_SHA256SUMS"
+      grep " terraform_${v}_linux_amd64.zip$" "terraform_${v}_SHA256SUMS" | sha256sum --check --quiet
+      unzip -oq "terraform_${v}_linux_amd64.zip" -d "$(Agent.TempDirectory)/terraform-bin"
+      echo "##vso[task.prependpath]$(Agent.TempDirectory)/terraform-bin"
+    displayName: Install Terraform ${{ parameters.version }} (checksum verified)

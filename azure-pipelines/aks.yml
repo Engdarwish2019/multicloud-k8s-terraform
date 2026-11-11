@@ -1,0 +1,112 @@
+# Azure DevOps pipeline for the AKS environment (envs/azure): the Azure DevOps counterpart of
+# the GitHub Actions workflows in .github/. Pull requests are validated and tested offline;
+# main saves a plan as an artifact, and the apply stage waits for the approval configured on
+# the aks-lab environment, then applies exactly that plan.
+#
+# One-time setup in Azure DevOps:
+#   - service connection "sc-azure-wif": Azure Resource Manager, workload identity federation
+#   - variable group "aks-terraform": TF_STATE_RESOURCE_GROUP, TF_STATE_STORAGE_ACCOUNT,
+#     TF_STATE_CONTAINER, API_ALLOWED_CIDRS (a JSON list such as ["203.0.113.10/32"])
+#   - environment "aks-lab" with an Approvals check
+
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include: [envs/azure, modules/azure-aks, azure-pipelines]
+
+pr:
+  branches:
+    include: [main]
+  paths:
+    include: [envs/azure, modules/azure-aks, azure-pipelines]
+
+variables:
+  - name: terraformVersion
+    value: 1.9.8
+  - name: serviceConnection
+    value: sc-azure-wif
+
+pool:
+  vmImage: ubuntu-24.04
+
+stages:
+  - stage: Validate
+    displayName: Format, validate and test (no cloud access)
+    jobs:
+      - job: terraform
+        steps:
+          - template: templates/install-terraform.yml
+            parameters:
+              version: ${{ variables.terraformVersion }}
+
+          - bash: terraform fmt -check -recursive -diff
+            displayName: terraform fmt
+
+          - bash: terraform init -backend=false -input=false && terraform validate
+            workingDirectory: envs/azure
+            displayName: terraform validate
+
+          - bash: terraform init -backend=false -input=false && terraform test
+            workingDirectory: modules/azure-aks
+            displayName: terraform test (mocked azurerm provider)
+
+  - stage: Plan
+    dependsOn: Validate
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    variables:
+      - group: aks-terraform
+    jobs:
+      - job: plan
+        steps:
+          - template: templates/install-terraform.yml
+            parameters:
+              version: ${{ variables.terraformVersion }}
+
+          - template: templates/terraform-azure.yml
+            parameters:
+              serviceConnection: ${{ variables.serviceConnection }}
+              displayName: terraform plan
+              command: terraform plan -input=false -out=tfplan
+
+          # The plan and the provider lock file travel together, so apply uses the exact same
+          # provider versions the plan was made with.
+          - bash: |
+              mkdir -p "$(Build.ArtifactStagingDirectory)/tfplan"
+              cp envs/azure/tfplan envs/azure/.terraform.lock.hcl "$(Build.ArtifactStagingDirectory)/tfplan/"
+            displayName: Stage the plan and lock file
+
+          - publish: $(Build.ArtifactStagingDirectory)/tfplan
+            artifact: tfplan
+            displayName: Save the plan for the apply stage
+
+  - stage: Apply
+    dependsOn: Plan
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    variables:
+      - group: aks-terraform
+    jobs:
+      - deployment: apply
+        displayName: Apply the reviewed plan
+        environment: aks-lab
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - download: current
+                  artifact: tfplan
+
+                - bash: cp "$(Pipeline.Workspace)/tfplan/.terraform.lock.hcl" envs/azure/
+                  displayName: Use the provider versions the plan was made with
+
+                - template: templates/install-terraform.yml
+                  parameters:
+                    version: ${{ variables.terraformVersion }}
+
+                - template: templates/terraform-azure.yml
+                  parameters:
+                    serviceConnection: ${{ variables.serviceConnection }}
+                    displayName: terraform apply
+                    command: terraform apply -input=false "$(Pipeline.Workspace)/tfplan/tfplan"

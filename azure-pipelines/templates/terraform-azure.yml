@@ -1,0 +1,44 @@
+# Step template: sign in through a workload identity federation service connection (OIDC, so
+# no client secret exists anywhere), use remote state in Azure Storage and run one Terraform
+# command in envs/azure. The repository has no backend block; the pipeline adds it here, so
+# local runs and the GitHub plan workflow keep working without a state account.
+parameters:
+  - name: serviceConnection
+    type: string
+  - name: displayName
+    type: string
+  - name: command
+    type: string
+
+steps:
+  - task: AzureCLI@2
+    displayName: ${{ parameters.displayName }}
+    inputs:
+      azureSubscription: ${{ parameters.serviceConnection }}
+      scriptType: bash
+      scriptLocation: inlineScript
+      addSpnToEnvironment: true
+      workingDirectory: envs/azure
+      inlineScript: |
+        set -euo pipefail
+        export ARM_USE_OIDC=true
+        export ARM_OIDC_TOKEN="$idToken"
+        export ARM_CLIENT_ID="$servicePrincipalId"
+        export ARM_TENANT_ID="$tenantId"
+        ARM_SUBSCRIPTION_ID="$(az account show --query id --output tsv)"
+        export ARM_SUBSCRIPTION_ID
+        export TF_VAR_subscription_id="$ARM_SUBSCRIPTION_ID"
+
+        printf 'terraform {\n  backend "azurerm" {}\n}\n' > backend_override.tf
+        terraform init -input=false \
+          -backend-config="resource_group_name=$(TF_STATE_RESOURCE_GROUP)" \
+          -backend-config="storage_account_name=$(TF_STATE_STORAGE_ACCOUNT)" \
+          -backend-config="container_name=$(TF_STATE_CONTAINER)" \
+          -backend-config="key=aks.tfstate" \
+          -backend-config="use_oidc=true" \
+          -backend-config="use_azuread_auth=true"
+
+        ${{ parameters.command }}
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_VAR_api_allowed_cidrs: $(API_ALLOWED_CIDRS)
