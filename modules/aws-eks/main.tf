@@ -53,11 +53,13 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
+  # metrics-server feeds the HorizontalPodAutoscaler (kubectl top, HPA on CPU/memory).
   cluster_addons = {
     coredns                = {}
     kube-proxy             = {}
     vpc-cni                = {}
     eks-pod-identity-agent = {}
+    metrics-server         = {}
   }
 
   eks_managed_node_groups = {

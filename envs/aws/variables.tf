@@ -19,7 +19,7 @@ variable "azs" {
 variable "kubernetes_version" {
   description = "EKS Kubernetes version."
   type        = string
-  default     = "1.31"
+  default     = "1.36"
 }
 
 variable "api_allowed_cidrs" {
