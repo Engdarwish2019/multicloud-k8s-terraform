@@ -26,7 +26,7 @@ jobs:
       - name: terraform fmt
         run: terraform fmt -check -recursive -diff
 
-      - uses: terraform-linters/setup-tflint@v4
+      - uses: terraform-linters/setup-tflint@v6
         with:
           tflint_version: v0.53.0
 
